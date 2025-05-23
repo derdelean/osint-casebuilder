@@ -14,7 +14,7 @@ from rich.progress import (
 
 print("✅ Modul `username_lookup` async mit rich-Progressbar aktiv")
 
-# Plattformen mit URL-Vorlagen
+# Platforms with ULR templates
 PLATFORMS = {
     "GitHub": "https://github.com/{}",
     "Twitter": "https://twitter.com/{}",
