@@ -14,7 +14,6 @@ from rich.progress import (
 
 print("✅ Modul `username_lookup` async mit rich-Progressbar aktiv")
 
-# Platforms with ULR templates
 PLATFORMS = {
     "GitHub": "https://github.com/{}",
     "Twitter": "https://twitter.com/{}",
@@ -42,12 +41,13 @@ async def fetch_profile(client, url, platform, variant, sem: Semaphore, progress
                         "type": "username",
                         "value": variant,
                         "source": url,
+                        "platform": platform,
                         "timestamp": "auto"
                     }
                 return None
             except httpx.RequestError as e:
                 if attempt < RETRY_COUNT:
-                    await asyncio.sleep(1.0)  # Retry-Backoff
+                    await asyncio.sleep(1.0)
         progress.advance(task_id)
         return None
 
