@@ -1,16 +1,18 @@
 import sys
 import os
-import markdown
 import asyncio
-from datetime import datetime
+import markdown
 
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QFormLayout, QLineEdit, QPushButton,
-    QTextEdit, QVBoxLayout, QCheckBox, QLabel, QTextBrowser, QDialog
+    QApplication, QWidget, QVBoxLayout, QFormLayout, QLineEdit,
+    QPushButton, QCheckBox, QLabel, QTableWidget, QTableWidgetItem,
+    QHeaderView, QTextBrowser, QDialog
 )
+from PyQt5.QtCore import Qt
 from qasync import QEventLoop, asyncSlot
 
 from .controller import run_case
+from .components.loading_spinner import LoadingSpinner
 
 
 class MarkdownViewer(QDialog):
@@ -26,7 +28,7 @@ class MarkdownViewer(QDialog):
                 html = markdown.markdown(md_content, extensions=["extra", "tables"])
                 browser.setHtml(html)
         else:
-            browser.setText("❌ Report nicht gefunden.")
+            browser.setText("❌ Report not found.")
 
         layout.addWidget(browser)
         self.setLayout(layout)
@@ -55,23 +57,29 @@ class OSINTGui(QWidget):
         form_layout.addRow("🌐 Target Domain:", self.domain_input)
         form_layout.addRow("", self.generate_report_checkbox)
 
-        self.result_area = QTextEdit()
-        self.result_area.setReadOnly(True)
-
         self.search_button = QPushButton("🔍 Suche starten")
         self.search_button.clicked.connect(self.run_osint)
 
         self.view_report_button = QPushButton("📄 Markdown-Bericht anzeigen")
         self.view_report_button.clicked.connect(self.show_markdown_report)
 
+        self.status_label = QLabel("Bereit.")
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["Username", "Platform", "Score", "URL"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSortingEnabled(True)
+
         layout.addLayout(form_layout)
         layout.addWidget(self.search_button)
         layout.addWidget(self.view_report_button)
-        layout.addWidget(QLabel("📄 Ergebnisse:"))
-        layout.addWidget(self.result_area)
+        layout.addWidget(QLabel("📊 Ergebnisse:"))
+        layout.addWidget(self.table)
+        layout.addWidget(self.status_label)
 
         self.setLayout(layout)
-        self.resize(600, 500)
+        self.resize(800, 600)
 
     def show_markdown_report(self):
         report_dir = os.path.abspath("reports")
@@ -81,11 +89,17 @@ class OSINTGui(QWidget):
             viewer = MarkdownViewer(latest_report)
             viewer.exec_()
         else:
-            self.result_area.append("⚠️ Kein Markdown-Report gefunden.")
+            self.status_label.setText("⚠️ Kein Markdown-Report gefunden.")
 
     @asyncSlot()
     async def run_osint(self):
-        self.result_area.clear()
+        self.search_button.setEnabled(False)
+        self.status_label.setText("⏳ Suche läuft...")
+        self.table.setRowCount(0)
+
+        spinner = LoadingSpinner()
+        spinner.show()
+
         username = self.username_input.text()
         fullname = self.fullname_input.text()
         location = self.location_input.text()
@@ -93,39 +107,56 @@ class OSINTGui(QWidget):
         domain = self.domain_input.text()
         generate_report = self.generate_report_checkbox.isChecked()
 
-        findings = await run_case(
-            email=None,
-            username=username or None,
-            domain=domain or None,
-            generate_report=generate_report,
-            output_path=None,
-        )
+        try:
+            findings = await run_case(
+                email=None,
+                username=username or None,
+                domain=domain or None,
+                generate_report=generate_report,
+                output_path=None,
+                fullname=fullname or None,
+                location=location or None,
+                keywords=keywords or None,
+                target_domain=domain or None,
+            )
 
-        if findings:
-            self.result_area.append(f"✅ {len(findings)} Fundstellen gefunden:\n")
+            print("🔍 DEBUG: First 3 findings:")
+            for f in findings[:3]:
+                print(f)
+
             for item in findings:
-                self.result_area.append(f"- {item.get('value')} → {item.get('source')}")
-                if "score" in item:
-                    score = item["score"]
-                    if score >= 0.85:
-                        level = "hoch ✅"
-                    elif score >= 0.5:
-                        level = "mittel ⚠️"
-                    else:
-                        level = "niedrig ❌"
-                    self.result_area.append(f"  Score: {score} ({level})")
-                self.result_area.append("")
-        else:
-            self.result_area.append("❌ Keine Fundstellen.")
+                user = item.get("value", "")
+                source = item.get("source", "")
+                platform = self.extract_platform(source)
+                score = item.get("score")
+                score_str = f"{score:.2f}" if isinstance(score, (float, int)) else "-"
+
+                row = self.table.rowCount()
+                self.table.insertRow(row)
+                self.table.setItem(row, 0, QTableWidgetItem(user or "-"))
+                self.table.setItem(row, 1, QTableWidgetItem(platform or "-"))
+                self.table.setItem(row, 2, QTableWidgetItem(score_str))
+                self.table.setItem(row, 3, QTableWidgetItem(source or "-"))
+
+            self.status_label.setText(f"✅ {len(findings)} Fundstellen gefunden.")
+        except Exception as e:
+            self.status_label.setText(f"❌ Fehler: {str(e)}")
+        finally:
+            spinner.close()
+            self.search_button.setEnabled(True)
+
+    def extract_platform(self, url: str) -> str:
+        try:
+            return url.split("//")[1].split("/")[0]
+        except Exception:
+            return "Unbekannt"
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
-
     gui = OSINTGui()
     gui.show()
-
     with loop:
         loop.run_forever()
