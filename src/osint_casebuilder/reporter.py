@@ -21,7 +21,7 @@ def generate_markdown_report(findings, session_id, output_path=None):
         f.write(f"_Session ID: {session_id}_\n\n")
 
         for item in findings_sorted:
-            f.write(f"## 🔍 Fundtyp: {item.get('type', 'unbekannt')}\n")
+            f.write(f"## 🔍 Fundtyp: {item.get('type', 'unknown')}\n")
             f.write(f"- **Wert**: `{item.get('value', '')}`\n")
             f.write(f"- **Quelle**: {item.get('source', '')}\n")
             f.write(f"- **Zeit**: {item.get('timestamp', '')}\n")
@@ -30,17 +30,17 @@ def generate_markdown_report(findings, session_id, output_path=None):
             if "score" in item:
                 score = item["score"]
                 if score >= 0.85:
-                    level = "hoch ✅"
+                    level = "high ✅"
                 elif score >= 0.5:
-                    level = "mittel ⚠️"
+                    level = "average ⚠️"
                 else:
-                    level = "niedrig ❌"
+                    level = "low ❌"
                 f.write(f"- **Score**: {score} (**{level}**)\n")
             else:
-                f.write("- **Score**: (nicht berechnet)\n")
+                f.write("- **Score**: (not calculated)\n")
 
             if "meta" in item and isinstance(item["meta"], dict):
-                f.write("\n### 📄 Profildaten\n")
+                f.write("\n### 📄 Profile Data\n")
                 for key, value in item["meta"].items():
                     f.write(f"- **{key.capitalize()}**: {value}\n")
                 profiles.append(item["meta"])
@@ -49,9 +49,9 @@ def generate_markdown_report(findings, session_id, output_path=None):
 
         # Summary
         if profiles:
-            f.write("# 📊 Gesamtübersicht: Profildaten\n\n")
+            f.write("# 📊 Summary: Profile Data\n\n")
             for profile in profiles:
-                username = profile.get("username", "unbekannt")
+                username = profile.get("username", "unknown")
                 f.write(f"## {username}\n")
                 for key, value in profile.items():
                     if value not in (None, "", [], {}):
@@ -61,21 +61,21 @@ def generate_markdown_report(findings, session_id, output_path=None):
                 if matching_finding and "score" in matching_finding:
                     score = matching_finding["score"]
                     if score >= 0.85:
-                        level = "hoch ✅"
+                        level = "high ✅"
                     elif score >= 0.5:
-                        level = "mittel ⚠️"
+                        level = "average ⚠️"
                     else:
-                        level = "niedrig ❌"
+                        level = "low ❌"
                     f.write(f"- **Score**: {score} (**{level}**)\n")
 
                 f.write("\n")
 
-    print(f"✅ Report erstellt: {filename_md}")
+    print(f"✅ Report created: {filename_md}")
 
     # Export JSON
     try:
         with open(filename_json, "w", encoding="utf-8") as jf:
             json.dump(findings_sorted, jf, indent=2, ensure_ascii=False)
-        print(f"✅ JSON gespeichert: {filename_json}")
+        print(f"✅ JSON saved: {filename_json}")
     except Exception as e:
-        print(f"❌ Fehler beim Speichern der JSON-Datei: {e}")
+        print(f"❌ Error when saving JSON file: {e}")

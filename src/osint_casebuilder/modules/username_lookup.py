@@ -69,7 +69,7 @@ async def run_username_lookup_async(username: str):
             TimeElapsedColumn()
         ) as progress:
 
-            task_id = progress.add_task("Benutzername-Plattform-Kombis prüfen...", total=total_tasks)
+            task_id = progress.add_task("Checking Username platform combinations...", total=total_tasks)
 
             tasks = [
                 fetch_profile(client, template.format(variant), platform, variant, sem, progress, task_id)
@@ -79,7 +79,7 @@ async def run_username_lookup_async(username: str):
             results = await asyncio.gather(*tasks)
             findings = [r for r in results if r]
 
-    print(f"✅ {len(findings)} Fundstellen insgesamt (async)")
+    print(f"✅ {len(findings)} Total findings")
     return findings
 
 def run_username_lookup(username: str):

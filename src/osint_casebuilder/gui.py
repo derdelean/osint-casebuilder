@@ -63,7 +63,7 @@ class OSINTGui(QWidget):
         self.view_report_button = QPushButton("📄 Markdown-Bericht anzeigen")
         self.view_report_button.clicked.connect(self.show_markdown_report)
 
-        self.status_label = QLabel("Bereit.")
+        self.status_label = QLabel("Ready.")
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["Username", "Platform", "Score", "URL"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -74,7 +74,7 @@ class OSINTGui(QWidget):
         layout.addLayout(form_layout)
         layout.addWidget(self.search_button)
         layout.addWidget(self.view_report_button)
-        layout.addWidget(QLabel("📊 Ergebnisse:"))
+        layout.addWidget(QLabel("📊 Results:"))
         layout.addWidget(self.table)
         layout.addWidget(self.status_label)
 
@@ -94,7 +94,7 @@ class OSINTGui(QWidget):
     @asyncSlot()
     async def run_osint(self):
         self.search_button.setEnabled(False)
-        self.status_label.setText("⏳ Suche läuft...")
+        self.status_label.setText("⏳ Searching...")
         self.table.setRowCount(0)
 
         spinner = LoadingSpinner()
@@ -138,7 +138,7 @@ class OSINTGui(QWidget):
                 self.table.setItem(row, 2, QTableWidgetItem(score_str))
                 self.table.setItem(row, 3, QTableWidgetItem(source or "-"))
 
-            self.status_label.setText(f"✅ {len(findings)} Fundstellen gefunden.")
+            self.status_label.setText(f"✅ {len(findings)} Found findings.")
         except Exception as e:
             self.status_label.setText(f"❌ Fehler: {str(e)}")
         finally:

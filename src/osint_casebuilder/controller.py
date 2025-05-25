@@ -27,14 +27,14 @@ async def run_case(
         for f in username_findings:
             f["timestamp"] = session_id
 
-            # ✅ fallback platform detection from URL
+            # fallback platform detection from URL
             if "platform" not in f and "source" in f:
                 try:
                     f["platform"] = f["source"].split("//")[1].split("/")[0]
                 except Exception:
                     f["platform"] = "unknown"
 
-            # ✅ score every profile
+            # score every profile
             if "github.com" in f.get("source", ""):
                 f["score"] = 1.0  # fallback
             else:
