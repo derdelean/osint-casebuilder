@@ -4,15 +4,15 @@
 
 OSINT CaseBuilder is a modular, extensible tool that helps investigators, cybersecurity professionals, and journalists rapidly collect and analyze public data on people, usernames, and digital footprints across the web.
 
-It supports:
+### It supports:
 
-✅ Username enumeration across 10+ platforms
-✅ GitHub metadata scraping (followers, bio, location, etc.)
-✅ Smart confidence scoring using NLP & metadata
-✅ Beautiful markdown + JSON reports
-✅ PyQt5 desktop interface (with progress spinner + sortable table)
-✅ Easy CLI interface for headless environments
-✅ Built with async Python and a scalable architecture
+- ✅ Username enumeration across 10+ platforms
+- ✅ GitHub metadata scraping (followers, bio, location, etc.)
+- ✅ Smart confidence scoring using NLP & metadata
+- ✅ Beautiful markdown + JSON reports
+- ✅ PyQt5 desktop interface (with progress spinner + sortable table)
+- ✅ Easy CLI interface for headless environments
+- ✅ Built with async Python and a scalable architecture
 
 ## 🔍 Why OSINT CaseBuilder?
 
@@ -54,11 +54,11 @@ python -m osint_casebuilder.gui
 
 ## 🧱 Architecture Overview
 
-- main.py / cli.py: Entry points
-- modules/: All functional units (username lookup, scoring, etc.)
-- reporter.py: Report generation logic
-- controller.py: Orchestrates everything
-- gui.py: PyQt5 interface
+- `main.py / cli.py`: Entry points
+- `modules/`: All functional units (username lookup, scoring, etc.)
+- `reporter.py`: Report generation logic
+- `controller.py`: Orchestrates everything
+- `gui.py`: PyQt5 interface
 
 ## 🔐 Disclaimer
 
