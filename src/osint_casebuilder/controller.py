@@ -1,8 +1,8 @@
 from datetime import datetime
-from .modules.username_lookup import run_username_lookup_async
-from .modules.github_profile_scraper import scrape_github_profile_async
-from .modules.confidence_scorer import score_profile
-from .reporter import generate_markdown_report
+from osint_casebuilder.modules.username_lookup import run_username_lookup_async
+from osint_casebuilder.modules.github_profile_scraper import scrape_github_profile_async
+from osint_casebuilder.modules.confidence_scorer import score_profile
+from osint_casebuilder.reporter import generate_markdown_report
 
 
 async def run_case(
@@ -14,15 +14,18 @@ async def run_case(
     fullname=None,
     location=None,
     keywords=None,
-    target_domain=None
+    target_domain=None,
+    interactive=True
 ):
     session_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     findings = []
 
     if username:
-        print(f"\n🔍 Username lookup: {username}")
+        if interactive:
+            print(f"\n🔍 Username lookup: {username}")
         username_findings = await run_username_lookup_async(username)
-        print(f"🔎 Found: {len(username_findings)} profiles")
+        if interactive:
+            print(f"🔎 Found: {len(username_findings)} profiles")
 
         for f in username_findings:
             f["timestamp"] = session_id
@@ -34,19 +37,23 @@ async def run_case(
                 except Exception:
                     f["platform"] = "unknown"
 
-            # score every profile
-            if "github.com" in f.get("source", ""):
-                f["score"] = 1.0  # fallback
-            else:
-                f["score"] = 0.2  # generic trust score
+            # Apply confidence score to each profile
+            f["score"] = score_profile(
+                f.get("meta", {}),
+                fullname,
+                location,
+                keywords or [],
+                target_domain
+            )
 
         findings.extend(username_findings)
 
         # GitHub metadata scraping + confidence scoring
         profile = await scrape_github_profile_async(username)
         if profile:
-            print("🧠 GitHub Profile:")
-            print(profile)
+            if interactive:
+                print("🧠 GitHub Profile:")
+                print(profile)
             profile_finding = {
                 "type": "username",
                 "value": username,
@@ -59,7 +66,8 @@ async def run_case(
             findings.append(profile_finding)
 
     if generate_report:
-        print("\n📝 Generating report...")
+        if interactive:
+            print("\n📝 Generating report...")
         generate_markdown_report(findings, session_id, output_path)
 
     return findings

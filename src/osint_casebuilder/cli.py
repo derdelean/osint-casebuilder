@@ -1,7 +1,7 @@
 import argparse
 from .controller import run_case
 
-def run_cli():
+def run_cli(return_args=False):
     parser = argparse.ArgumentParser(description="OSINT CaseBuilder CLI")
 
     parser.add_argument("--username", type=str, help="Ziel-Benutzername")
@@ -17,6 +17,9 @@ def run_cli():
     parser.add_argument("--out", type=str, help="Pfad für Output-Ordner")
 
     args = parser.parse_args()
+
+    if return_args:
+        return args
 
     run_case(
         email=args.email,
