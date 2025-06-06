@@ -17,9 +17,12 @@ def score_profile(profile, fullname=None, location=None, keywords=None, domain=N
 
     if keywords and profile.get("bio"):
         total += 1
-        matches = sum(1 for kw in keywords.split(",") if kw.lower().strip() in profile["bio"].lower())
-        if matches:
-            score += matches / len(keywords.split(","))
+        # Keywords is already a list of strings, cleaned by the CLI.
+        if keywords: # Ensure keywords list is not empty before division
+            bio_lower = profile["bio"].lower()
+            matches = sum(1 for kw_item in keywords if kw_item.lower().strip() in bio_lower)
+            if matches and len(keywords) > 0:
+                score += matches / len(keywords)
 
     if domain and profile.get("website"):
         total += 1

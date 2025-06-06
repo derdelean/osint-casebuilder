@@ -2,24 +2,24 @@ import streamlit as st
 import asyncio
 import json
 from datetime import datetime
-from osint_casebuilder.controller import run_case
-from osint_casebuilder.reporter import generate_markdown_report
 from io import StringIO
+
+from osint_casebuilder.controller import run_case
+from osint_casebuilder.reporter import render_markdown_content
 
 st.set_page_config(page_title="OSINT CaseBuilder", layout="wide")
 st.title("🕵️‍♂️ OSINT CaseBuilder Demo")
 
 with st.form("input_form"):
-    username = st.text_input("Username", "torvalds")
-    fullname = st.text_input("Full Name", "Linus Torvalds")
-    location = st.text_input("Location", "Portland, OR")
-    keywords = st.text_input("Keywords (comma-separated)", "linux,git,kernel,opensource")
-    target_domain = st.text_input("Target Domain", "torvalds.dev")
+    username = st.text_input("Username", placeholder="Enter a username")
+    fullname = st.text_input("Full Name", placeholder=" Enter the full name ")
+    location = st.text_input("Location", placeholder="Enter a location, e.g. (Portland, OR)")
+    keywords = st.text_input("Keywords (comma-separated)", placeholder="Enter keywords, e.g. (osint,linux,git,kernel,opensource)")
+    target_domain = st.text_input("Target Domain", placeholder="Enter a target domain, e.g. (torvalds.dev)")
     submitted = st.form_submit_button("🔍 Start Investigation")
 
 if submitted:
     st.info("Running OSINT case... Please wait.")
-
     results = asyncio.run(run_case(
         username=username,
         fullname=fullname,
@@ -28,6 +28,12 @@ if submitted:
         target_domain=target_domain,
         generate_report=False
     ))
+    st.session_state["results"] = results
+    st.session_state["session_id"] = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+if "results" in st.session_state:
+    results = st.session_state["results"]
+    session_id = st.session_state["session_id"]
 
     st.success(f"✅ {len(results)} profile(s) found")
 
@@ -75,14 +81,11 @@ if submitted:
     st.download_button(
         label="💾 Download as JSON",
         data=json_data,
-        file_name=f"osint_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+        file_name=f"osint_results_{session_id}.json",
         mime="application/json"
     )
 
-    # Generate Markdown in memory
     md_buffer = StringIO()
-    from osint_casebuilder.reporter import render_markdown_content
-    session_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     md_buffer.write(render_markdown_content(results))
 
     st.download_button(
