@@ -5,3 +5,7 @@ venv/
 osint_casebuilder/__pycache__/
 __pycache__/
 .vscode/
+
+# Generated artifacts
+*.db
+*_graph.html

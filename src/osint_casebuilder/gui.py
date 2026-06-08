@@ -116,7 +116,7 @@ class OSINTGui(QWidget):
                 output_path=None,
                 fullname=fullname or None,
                 location=location or None,
-                keywords=keywords or None,
+                keywords=[k.strip() for k in keywords.split(",")] if keywords.strip() else None,
                 target_domain=domain or None,
             )
 
