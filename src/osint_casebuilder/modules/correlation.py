@@ -48,6 +48,19 @@ def extract_entities(finding: dict) -> list:
     elif ftype == "host" and val:
         ents.append(("host", str(val).strip()))
 
+    # account-presence bridge: a maigret username hit, a holehe email-registration,
+    # or an ignorant phone-registration all assert "the target has an account at
+    # this site". Extracting the site host as a shared entity lets a username and an
+    # email/phone landing on the SAME site (e.g. Replit) merge into one identity
+    # cluster — without it they share no entity and split into separate clusters.
+    # Gated to these finding kinds so resolver/lookup sources (e.g. the Email/MX
+    # finding's dns.google) don't leak in as bogus sites.
+    platform = str(finding.get("platform") or "")
+    if ftype == "username" or platform.startswith(("holehe:", "ignorant:")):
+        site = _domain_of(finding.get("source") or "")
+        if site:
+            ents.append(("site", site))
+
     # identity attributes carried in meta
     if meta.get("email") and _EMAIL_RE.match(str(meta["email"])):
         ents.append(("email", _norm(meta["email"])))

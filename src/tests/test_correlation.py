@@ -64,6 +64,26 @@ class TestExtractEntities(unittest.TestCase):
         self.assertIn(("host", "1.2.3.4"), ents)
         self.assertIn(("domain", "example.com"), ents)
 
+    def test_site_extracted_for_account_presence(self):
+        # a maigret username hit and a holehe email-registration on the same site
+        # both yield the same ("site", host) bridge entity
+        uname = {"type": "username", "value": "derdelean", "platform": "Replit",
+                 "source": "https://replit.com/@derdelean", "meta": {}}
+        holehe = {"type": "email", "value": "x@gmail.com", "platform": "holehe:replit",
+                  "source": "https://replit.com", "meta": {"registered": True}}
+        self.assertIn(("site", "replit.com"), extract_entities(uname))
+        self.assertIn(("site", "replit.com"), extract_entities(holehe))
+
+    def test_site_not_extracted_for_resolver_lookup(self):
+        # the Email/MX finding's source is a DoH resolver, not the target's site
+        self.assertNotIn(
+            ("site", "dns.google"),
+            extract_entities({"type": "email", "value": "linus@kernel.org",
+                              "platform": "Email/MX",
+                              "source": "https://dns.google/resolve?name=kernel.org&type=MX",
+                              "meta": {"domain": "kernel.org"}}),
+        )
+
 
 class TestCorrelate(unittest.TestCase):
     def setUp(self):
@@ -90,6 +110,36 @@ class TestCorrelate(unittest.TestCase):
         self.assertEqual(s["distinct_entities"], 0)
         self.assertEqual(s["clusters"], 0)
         self.assertEqual(s["corroborated"], [])
+
+
+class TestSiteBridge(unittest.TestCase):
+    """A username hit and an email/phone registration on the SAME site must merge
+    into one identity cluster (the username↔email cross-type link)."""
+
+    UNAME_REPLIT = {"type": "username", "value": "derdelean", "platform": "Replit",
+                    "source": "https://replit.com/@derdelean", "meta": {}}
+    HOLEHE_REPLIT = {"type": "email", "value": "x@gmail.com", "platform": "holehe:replit",
+                     "source": "https://replit.com", "meta": {"registered": True}}
+
+    def test_username_and_email_merge_via_site(self):
+        # alone the two share no entity (username vs email) — only the site bridges
+        s = correlate([self.UNAME_REPLIT, self.HOLEHE_REPLIT])
+        self.assertEqual(s["clusters"], 1)
+
+    def test_shared_site_is_corroborated(self):
+        s = correlate([self.UNAME_REPLIT, self.HOLEHE_REPLIT])
+        site = [c for c in s["corroborated"]
+                if c["type"] == "site" and c["value"] == "replit.com"]
+        self.assertEqual(len(site), 1)
+        self.assertEqual(site[0]["count"], 2)
+        self.assertEqual(sorted(site[0]["platforms"]), ["Replit", "holehe:replit"])
+
+    def test_different_sites_do_not_merge(self):
+        # username on replit + email registered on twitter → no bridge, 2 clusters
+        holehe_tw = {"type": "email", "value": "x@gmail.com", "platform": "holehe:twitter",
+                     "source": "https://twitter.com", "meta": {"registered": True}}
+        s = correlate([self.UNAME_REPLIT, holehe_tw])
+        self.assertEqual(s["clusters"], 2)
 
 
 if __name__ == "__main__":
