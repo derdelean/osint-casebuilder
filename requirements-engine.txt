@@ -1,0 +1,15 @@
+# OSINT identity engine (Maigret) — install in a SEPARATE Python 3.12 venv.
+#
+# Maigret pulls a heavy, tightly-pinned dependency tree (click 8.4.x, rich 15.x,
+# aiohttp, curl_cffi, lxml, ...) that conflicts with the streamlit/pyqt pins in
+# requirements.txt. Keep it isolated:
+#
+#   ~/.pyenv/versions/3.12.13/bin/python -m venv .venv
+#   ./.venv/bin/pip install -r requirements-engine.txt
+#
+# The app degrades gracefully without it: controller.run_case() falls back to the
+# basic HTTP username sweep if `maigret` can't be imported.
+maigret==0.6.1
+holehe==1.61
+ignorant==1.2
+phonenumbers==9.0.32
