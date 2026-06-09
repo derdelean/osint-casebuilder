@@ -1,77 +1,126 @@
 # 🕵️‍♂️ OSINT CaseBuilder
 
-## 🚀 What is OSINT CaseBuilder?
+OSINT CaseBuilder collects public data on a target from a **username, email,
+phone, or domain** (plus optional identity hints), correlates everything into an
+entity graph, and emits Markdown/JSON reports. Three frontends — CLI, PyQt5
+desktop GUI, and Streamlit — funnel into one async orchestrator.
 
-OSINT CaseBuilder is a modular, extensible tool that helps investigators, cybersecurity professionals, and journalists rapidly collect and analyze public data on people, usernames, and digital footprints across the web.
+## 🔍 What it does
 
-### It supports:
+Give it any combination of inputs and it will, where applicable:
 
-- ✅ Username enumeration across 10+ platforms
-- ✅ GitHub metadata scraping (followers, bio, location, etc.)
-- ✅ Smart confidence scoring using NLP & metadata
-- ✅ Beautiful markdown + JSON reports
-- ✅ PyQt5 desktop interface (with progress spinner + sortable table)
-- ✅ Easy CLI interface for headless environments
-- ✅ Built with async Python and a scalable architecture
+- **Username discovery via Maigret** — real per-site detection across 3000+ sites
+  (top 500 by default, all ~2500 with `--all-sites`), keeping only claimed
+  accounts and parsing on-page metadata into each finding.
+- **Deep profile enrichment** — GitHub (bio/website via the API), Reddit
+  (karma/age), and Hacker News (karma/about), richer than Maigret's generic
+  extraction.
+- **Email intelligence** — keyless MX (DNS-over-HTTPS) + Gravatar, then `holehe`
+  to find which of ~121 sites the email is *registered* on (recovery hints
+  captured where exposed).
+- **Phone intelligence** — offline `libphonenumber` (validity, carrier, region,
+  line type, timezones), then `ignorant` for phone→social registration checks
+  (Instagram/Amazon/Snapchat).
+- **Domain intelligence** — RDAP/WHOIS + A/NS records via DNS-over-HTTPS.
+- **Optional infra/breach intel** (`--infra`, off by default) — crt.sh subdomain
+  enumeration (keyless), plus Shodan/Censys hosts and Have I Been Pwned breaches
+  when the relevant API keys are present in the environment.
+- **Correlation** — extracts typed entities from every finding and reports the
+  attributes corroborated across multiple sources, identity clusters, and an edge
+  list (interactive pyvis graph export when available).
+- **Auto-pivot** (`--pivot-depth N`) — recursively searches usernames and emails
+  discovered mid-run (the email↔username pivot).
+- **Confidence scoring** — rates each profile's relevance against the supplied
+  name/location/keywords/domain so the real owner rises above lookalikes.
+- **Persistence** — every run auto-saves to a SQLite case database; list and
+  reload past cases from the CLI.
+- **Reports** — Markdown + JSON, with a correlation summary, written to
+  `reports/`.
 
-## 🔍 Why OSINT CaseBuilder?
+## ⚙️ Getting started
 
-Because finding the right digital footprint shouldn’t require 100 tabs, a million tools, and your sanity.
-Whether you're verifying a suspect's identity, mapping aliases, or preparing a digital profile for court or internal review — this tool helps you build a case file you can trust.
-
-## ✨ Features
-
-- Username Variant Generator: Creates dozens of smart variations (john.doe → johnd, jdoe, johndoe1990, etc.)
-- Multi-platform Lookup: GitHub, Reddit, TikTok, Instagram, Twitter, Steam, Pinterest, and more
-- Confidence Scoring: Automatically rates profile relevance based on name, location, bio & domain
-- Reports: Generate Markdown + JSON reports, exportable to PDF (planned)
-- Fast & Async: Built on httpx and asyncio for blazing speed
-- GUI Option: Run the tool with a slick PyQt5 interface
-- CLI Option: Use it in scripts or headless servers
-
-## ⚙️ Getting Started
+The Maigret engine pulls a heavy, tightly-pinned dependency tree that conflicts
+with the Streamlit/PyQt pins, so it lives in its **own Python 3.12 venv**.
 
 ```bash
-git clone https://github.com/yourusername/osint-casebuilder.git
+git clone https://github.com/derdelean/osint-casebuilder.git
 cd osint-casebuilder
-python -m venv venv
-source venv/bin/activate # or .\\venv\\Scripts\\activate on Windows
-pip install -r requirements.txt
+
+# Engine venv (Maigret) — Python 3.12, reliable wheels for the C-extension deps
+~/.pyenv/versions/3.12.13/bin/python -m venv .venv
+./.venv/bin/pip install -r requirements-engine.txt
 ```
+
+> **All commands run from `src/`.** The package imports the top-level `utils`
+> package, so imports fail elsewhere. Reports are written CWD-relative to
+> `reports/`, i.e. `src/reports/`.
+
+The Streamlit/PyQt frontends use a separate environment (`requirements.txt`) and
+can't import Maigret directly, but they still reach the real engine through a
+subprocess bridge as long as `.venv/bin/maigret` exists (or `$MAIGRET_BIN` is
+set); otherwise they degrade to a basic HTTP-200 sweep.
 
 ## 🧪 Run the CLI
 
 ```bash
-python -m osint_casebuilder.main --username johndoe --fullname "John Doe" --location "Berlin" --keywords "python,infosec" --target-domain "johndoe.dev" --report
+cd src
 
+# Any combination of --username / --email / --phone / --domain + identity hints.
+../.venv/bin/python -m osint_casebuilder.main \
+  --username johndoe --fullname "John Doe" --location "Berlin" \
+  --keywords "python,infosec" --target-domain johndoe.dev \
+  --phone "+41441234567" --top-sites 500 --pivot-depth 1 --report
+
+# Optional infra/breach intel. Paid sources run only if their env keys are set.
+HIBP_API_KEY=xxx SHODAN_API_KEY=yyy ../.venv/bin/python -m osint_casebuilder.main \
+  --domain example.com --email a@example.com --infra --report
+
+# Case management (no target inputs needed; works in any environment)
+../.venv/bin/python -m osint_casebuilder.main --list-cases
+../.venv/bin/python -m osint_casebuilder.main --load-case 1
 ```
 
-## 🖱️ Run the GUI
+Key flags: `--all-sites` (full ~2500-site Maigret sweep), `--pivot-depth N`
+(recursive pivots), `--infra` (subdomain/breach intel), `--db PATH` /
+`--no-save` (case persistence), `--phone-region XX` (for national numbers).
+
+## 🖱️ Run the GUI / web app
 
 ```bash
+# PyQt5 desktop interface
 python -m osint_casebuilder.gui
+
+# Streamlit web frontend (run from src/)
+streamlit run app_streamlit.py
 ```
 
-## 🧱 Architecture Overview
+## 🧱 Architecture
 
-- `main.py / cli.py`: Entry points
-- `modules/`: All functional units (username lookup, scoring, etc.)
-- `reporter.py`: Report generation logic
-- `controller.py`: Orchestrates everything
-- `gui.py`: PyQt5 interface
+All three frontends call `controller.run_case()` — the single async entry point.
+Data flows as a list of `finding` dicts through discovery → scoring → reporting.
+
+- `main.py` / `cli.py` — CLI entry + argument parsing
+- `controller.py` — orchestrates discovery, enrichment, pivot, correlation, save
+- `modules/` — discovery and analysis units (Maigret, email/phone/domain, holehe,
+  ignorant, social enrichment, infra/breach, correlation, scoring, case store)
+- `reporter.py` — Markdown/HTML/JSON report rendering
+- `gui.py` / `app_streamlit.py` — PyQt5 and Streamlit frontends
+- `utils/validation.py` — input gating (requires at least one non-empty field)
+
+## ✅ Tests
+
+Stdlib `unittest`. The full suite runs in the engine venv; engine-dependency
+tests skip elsewhere.
+
+```bash
+cd src && ../.venv/bin/python -m unittest discover -s tests -p "test_*.py"
+```
 
 ## 🔐 Disclaimer
 
-This tool is for educational and ethical use only. Use responsibly and only on targets you are legally allowed to investigate.
-
-## 🧠 Future Ideas
-
-- Browserless scraping for TikTok/Instagram bios
-- Confidence scoring for Reddit, Steam, Twitter
-- PDF report export
-- Threat actor detection modules
-- Saved investigations database
+This tool is for educational and ethical use only. Use responsibly and only on
+targets you are legally allowed to investigate.
 
 ## 👨‍💻 Author
 
-Built with ❤️ by derdelean. Inspired by Sherlock, recon-ng, and the needs of real OSINT analysts.
+Built by derdelean. Inspired by Maigret, holehe, Sherlock, and recon-ng.
