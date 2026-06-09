@@ -6,6 +6,10 @@ osint_casebuilder/__pycache__/
 __pycache__/
 .vscode/
 
+# macOS
+.DS_Store
+
 # Generated artifacts
 *.db
 *_graph.html
+reports/
