@@ -1,5 +1,4 @@
 import os
-import markdown
 from pathlib import Path
 
 def generate_markdown_report(findings, session_id, output_path=None, summary=None):
@@ -91,12 +90,3 @@ def _render_platform_blocks(findings):
             lines.append("")
 
     return lines
-
-
-def render_markdown_content(findings):
-    """
-    Convert markdown report to HTML string for Streamlit display.
-    """
-    md = render_markdown_report(findings)
-    html = markdown.markdown(md, extensions=["extra", "tables"])
-    return html

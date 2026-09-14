@@ -102,6 +102,11 @@ python -m osint_casebuilder.gui
 streamlit run app_streamlit.py
 ```
 
+Both expose the same inputs as the CLI (username, email, phone, domain, identity
+hints, site count, pivot depth, infra intel, case saving) and show each username
+hit's evidence tier. `holehe` (email→sites) and `ignorant` (phone→social) are
+only installed in the engine venv, so the frontends skip those two checks.
+
 ## 🧱 Architecture
 
 All three frontends call `controller.run_case()` — the single async entry point.
