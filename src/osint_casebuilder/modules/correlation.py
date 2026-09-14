@@ -23,7 +23,7 @@ def _domain_of(url) -> str:
     if "//" not in s:
         s = "//" + s
     host = urlparse(s).netloc or urlparse(s).path
-    return host.lower().lstrip("www.").split("/")[0].strip()
+    return host.lower().split("/")[0].strip().removeprefix("www.")
 
 
 def extract_entities(finding: dict) -> list:

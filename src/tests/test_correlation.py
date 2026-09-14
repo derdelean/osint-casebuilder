@@ -101,6 +101,18 @@ class TestCorrelate(unittest.TestCase):
         names = [c for c in self.summary["corroborated"] if c["type"] == "name"]
         self.assertTrue(any(c["value"] == "linus torvalds" and c["count"] == 2 for c in names))
 
+    def test_domain_starting_with_w_links_website_to_email(self):
+        # only a leading "www." is stripped — "wolfgang.dev" must not become "olfgang.dev"
+        prof = {"type": "username", "value": "wolf", "platform": "GitHub",
+                "source": "https://www.github.com/wolf", "meta": {"website": "https://wolfgang.dev"}}
+        mail = {"type": "email", "value": "a@wolfgang.dev", "platform": "Email/MX",
+                "meta": {"domain": "wolfgang.dev"}}
+        self.assertIn(("site", "github.com"), extract_entities(prof))
+        summary = correlate([prof, mail])
+        self.assertIn(("domain", "wolfgang.dev"),
+                      [(c["type"], c["value"]) for c in summary["corroborated"]])
+        self.assertEqual(summary["clusters"], 1)
+
     def test_clusters(self):
         # GitHub+SoundCloud+Email share entities; phone is alone → 2 clusters
         self.assertEqual(self.summary["clusters"], 2)
