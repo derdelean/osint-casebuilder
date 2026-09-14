@@ -124,6 +124,8 @@ class OSINTGui(QWidget):
             for f in findings[:3]:
                 print(f)
 
+            # With sorting on, each setItem re-sorts mid-row and scatters cells.
+            self.table.setSortingEnabled(False)
             for item in findings:
                 user = item.get("value", "")
                 source = item.get("source", "")
@@ -137,6 +139,7 @@ class OSINTGui(QWidget):
                 self.table.setItem(row, 1, QTableWidgetItem(platform or "-"))
                 self.table.setItem(row, 2, QTableWidgetItem(score_str))
                 self.table.setItem(row, 3, QTableWidgetItem(source or "-"))
+            self.table.setSortingEnabled(True)
 
             self.status_label.setText(f"✅ {len(findings)} Found findings.")
         except Exception as e:
