@@ -9,7 +9,7 @@
 #
 # The app degrades gracefully without it: controller.run_case() falls back to the
 # basic HTTP username sweep if `maigret` can't be imported.
-maigret==0.6.1
+maigret==0.6.5
 holehe==1.61
 ignorant==1.2
 phonenumbers==9.0.32
