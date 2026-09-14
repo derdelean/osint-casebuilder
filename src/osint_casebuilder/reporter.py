@@ -22,7 +22,6 @@ def render_correlation_section(summary):
     """Render the correlation summary: corroborated cross-platform attributes."""
     lines = ["\n## 🔗 Correlation"]
     lines.append(f"- **Distinct entities**: {summary.get('distinct_entities', 0)}")
-    lines.append(f"- **Identity clusters**: {summary.get('clusters', 0)}")
     corroborated = summary.get("corroborated", [])
     if corroborated:
         lines.append("\n### Corroborated across ≥2 platforms")
@@ -35,23 +34,52 @@ def render_correlation_section(summary):
 def render_markdown_report(findings, summary=None):
     """
     Returns a markdown string from the findings list (and optional correlation summary).
+    Username hits are tiered: "linked by evidence" (the controller set `evidence`)
+    are rendered in full; hits where only the handle exists are listed compactly.
     """
+    usernames = [f for f in findings if f.get("type") == "username"]
+    linked = [f for f in usernames if f.get("evidence")]
+    handle_only = [f for f in usernames if not f.get("evidence")]
+    others = [f for f in findings if f.get("type") != "username"]
+
     lines = ["# 🕵️ OSINT Case Report\n"]
+    if usernames:
+        lines.append(f"- **Linked by evidence**: {len(linked)}")
+        lines.append(f"- **Handle exists only**: {len(handle_only)}")
     if summary:
         lines.extend(render_correlation_section(summary))
+
+    if linked:
+        lines.append(f"\n## ✅ Linked by evidence ({len(linked)})")
+        lines.extend(_render_platform_blocks(linked))
+    if others:
+        lines.append(f"\n## 📇 Other findings ({len(others)})")
+        lines.extend(_render_platform_blocks(others))
+    if handle_only:
+        lines.append(f"\n## ❔ Handle exists only — unverified ({len(handle_only)})")
+        for f in handle_only:
+            lines.append(f"- **{f.get('platform', 'Unknown')}** `{f.get('value', '-')}` — {f.get('source', '-')}")
+
+    return "\n".join(lines)
+
+
+def _render_platform_blocks(findings):
     grouped = {}
 
     for f in findings:
         platform = f.get("platform", "Unknown")
         grouped.setdefault(platform, []).append(f)
 
+    lines = []
     for platform, items in grouped.items():
-        lines.append(f"\n## 🔹 Platform: {platform}")
+        lines.append(f"\n### 🔹 {platform}")
         for item in items:
-            lines.append(f"- **Username**: `{item.get('value', '-')}`")
+            lines.append(f"- **{item.get('type', 'value').title()}**: `{item.get('value', '-')}`")
             lines.append(f"  - **Source**: {item.get('source', '-')}")
             if "score" in item:
                 lines.append(f"  - **Score**: `{item['score']}`")
+            if item.get("evidence"):
+                lines.append(f"  - **Evidence**: {'; '.join(item['evidence'])}")
             if item.get("meta"):
                 meta = item["meta"]
                 for key in ["fullname", "location", "joined", "followers",
@@ -62,7 +90,7 @@ def render_markdown_report(findings, summary=None):
                         lines.append(f"  - **{key.replace('_', ' ').title()}**: {meta[key]}")
             lines.append("")
 
-    return "\n".join(lines)
+    return lines
 
 
 def render_markdown_content(findings):

@@ -1,6 +1,6 @@
 import unittest
 
-from osint_casebuilder.modules.confidence_scorer import score_profile
+from osint_casebuilder.modules.confidence_scorer import score_profile, matched_hints
 
 
 class TestScoreProfile(unittest.TestCase):
@@ -65,6 +65,29 @@ class TestScoreProfile(unittest.TestCase):
     def test_followers_below_threshold_does_not_add(self):
         # followers < 100 -> score = 0, total = 2 -> 0.0.
         self.assertEqual(score_profile({"followers": 99}), 0.0)
+
+
+class TestMatchedHints(unittest.TestCase):
+    PROFILE = {"fullname": "Linus Torvalds", "location": "Portland, OR",
+               "bio": "kernel hacker", "website": "https://kernel.org", "followers": 300000}
+
+    def test_all_hints(self):
+        self.assertEqual(
+            matched_hints(self.PROFILE, "linus torvalds", "Portland", ["kernel", "rust"], "kernel.org"),
+            ["fullname", "location", "keywords", "domain"])
+
+    def test_no_hints_or_no_meta(self):
+        self.assertEqual(matched_hints(self.PROFILE), [])
+        self.assertEqual(matched_hints(None, "Linus Torvalds"), [])
+        self.assertEqual(matched_hints({}, "Linus Torvalds", "Portland"), [])
+
+    def test_mismatch_and_blank_keywords(self):
+        self.assertEqual(matched_hints(self.PROFILE, "Ada Lovelace", keywords=["", " "]), [])
+
+    def test_followers_are_not_an_identity_hint(self):
+        # followers raise score_profile but say nothing about who owns the account
+        self.assertGreater(score_profile({"followers": 500}), 0)
+        self.assertEqual(matched_hints({"followers": 500}), [])
 
 
 if __name__ == "__main__":

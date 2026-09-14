@@ -34,3 +34,18 @@ def score_profile(profile, fullname=None, location=None, keywords=None, domain=N
             score += 1
 
     return round(score / total, 2)
+
+
+def matched_hints(profile, fullname=None, location=None, keywords=None, domain=None) -> list:
+    """Names of the operator-supplied identity hints this profile's meta matches.
+    Same comparisons as score_profile, minus followers: popularity isn't identity."""
+    profile = profile or {}
+    hits = [name for name, hint, key in (("fullname", fullname, "fullname"),
+                                          ("location", location, "location"))
+            if hint and profile.get(key) and hint.lower() in str(profile[key]).lower()]
+    keywords = [k.strip() for k in (keywords or []) if k.strip()]
+    if keywords and profile.get("bio") and any(k.lower() in profile["bio"].lower() for k in keywords):
+        hits.append("keywords")
+    if domain and profile.get("website") and domain.lower() in str(profile["website"]).lower():
+        hits.append("domain")
+    return hits

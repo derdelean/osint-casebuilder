@@ -1,6 +1,6 @@
 import unittest
 
-from osint_casebuilder.modules.correlation import extract_entities, correlate
+from osint_casebuilder.modules.correlation import extract_entities, correlate, evidence_links
 
 GITHUB = {
     "type": "username", "value": "torvalds", "platform": "GitHub",
@@ -152,6 +152,75 @@ class TestSiteBridge(unittest.TestCase):
                      "source": "https://twitter.com", "meta": {"registered": True}}
         s = correlate([self.UNAME_REPLIT, holehe_tw])
         self.assertEqual(s["clusters"], 2)
+
+
+def _hit(platform, handle="soxoj", **meta):
+    return {"type": "username", "value": handle, "platform": platform,
+            "source": f"https://{platform.lower()}.com/{handle}", "meta": meta}
+
+
+class TestSearchedValuesAreNotEvidence(unittest.TestCase):
+    """The searched handle existing on many sites (or a display name equal to it)
+    is the query, not corroboration."""
+
+    SEARCHED = {"username": {"soxoj"}}
+
+    def test_seed_not_corroborated(self):
+        s = correlate([_hit("GitHub"), _hit("Twitter")], self.SEARCHED)
+        self.assertEqual(s["corroborated"], [])
+        self.assertEqual(s["clusters"], 2)
+
+    def test_name_equal_to_handle_not_corroborated(self):
+        s = correlate([_hit("GitHub", fullname="Soxoj"), _hit("Twitter", fullname="soxoj")],
+                      self.SEARCHED)
+        self.assertEqual(s["corroborated"], [])
+
+    def test_real_attribute_still_corroborated(self):
+        s = correlate([_hit("GitHub", location="Amsterdam"), _hit("Twitter", location="amsterdam")],
+                      self.SEARCHED)
+        self.assertEqual([(c["type"], c["value"]) for c in s["corroborated"]],
+                         [("location", "amsterdam")])
+        self.assertEqual(s["clusters"], 1)
+
+    def test_two_handles_on_same_site_not_corroborated_or_merged(self):
+        # seed soxoj and pivot soxoj1 both on github.com: same host, different accounts
+        fs = [_hit("GitHub"), _hit("GitHub", handle="soxoj1")]
+        s = correlate(fs, {"username": {"soxoj", "soxoj1"}})
+        self.assertEqual(s["corroborated"], [])
+        self.assertEqual(s["clusters"], 2)
+
+    def test_without_searched_behaviour_unchanged(self):
+        s = correlate([_hit("GitHub"), _hit("Twitter")])
+        self.assertEqual(s["clusters"], 1)
+
+
+class TestEvidenceLinks(unittest.TestCase):
+    SEARCHED = {"username": {"soxoj"}}
+
+    def test_shared_location_links_both_hits(self):
+        fs = [_hit("GitHub", location="Amsterdam"), _hit("Twitter", location="Amsterdam"),
+              _hit("Codewars")]
+        ev = evidence_links(fs, self.SEARCHED)
+        self.assertEqual(ev[0], ["location `amsterdam` also on Twitter"])
+        self.assertEqual(ev[1], ["location `amsterdam` also on GitHub"])
+        self.assertNotIn(2, ev)  # handle only
+
+    def test_handle_and_name_equal_to_handle_are_not_evidence(self):
+        fs = [_hit("GitHub", fullname="soxoj"), _hit("Twitter", fullname="soxoj")]
+        self.assertEqual(evidence_links(fs, self.SEARCHED), {})
+
+    def test_email_registration_on_same_site_links_username_hit(self):
+        uname = TestSiteBridge.UNAME_REPLIT
+        holehe = TestSiteBridge.HOLEHE_REPLIT
+        ev = evidence_links([uname, holehe], {"username": {"derdelean"}, "email": {"x@gmail.com"}})
+        self.assertEqual(ev[0], ["same site (replit.com) as holehe:replit"])
+        self.assertEqual(ev[1], ["same site (replit.com) as Replit"])
+
+    def test_two_handles_on_same_site_are_not_evidence(self):
+        fs = [_hit("GitHub"), _hit("GitHubPivot", handle="sox0j")]
+        fs[1]["source"] = "https://github.com/sox0j"
+        fs[0]["source"] = "https://github.com/soxoj"
+        self.assertEqual(evidence_links(fs, {"username": {"soxoj", "sox0j"}}), {})
 
 
 if __name__ == "__main__":

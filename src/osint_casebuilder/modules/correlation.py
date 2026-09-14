@@ -105,15 +105,59 @@ def _finding_label(finding: dict, idx: int) -> str:
     return f"{finding.get('platform', '?')}#{idx}"
 
 
-def correlate(findings: list) -> dict:
+def _search_inputs(searched) -> set:
+    """Entities that are search inputs, not findings: {type: values} of the seed and
+    pivot seeds. A searched handle existing on many sites — or a display name equal
+    to it — is the query itself, not corroboration."""
+    searched = searched or {}
+    blocked = {(etype, _norm(v)) for etype, values in searched.items() for v in values}
+    blocked |= {("name", _norm(v)) for v in searched.get("username", ())}
+    return blocked
+
+
+def evidence_links(findings: list, searched=None) -> dict:
+    """Map finding index → reasons it is tied to a finding on another platform by
+    something other than a search input: a shared name/location/domain/email/link,
+    or a username hit and an email/phone registration on the same site. Two username
+    hits on the same host are not evidence (different handles, same site)."""
+    blocked = _search_inputs(searched)
+    holders = {}  # (type, value) -> [finding index]
+    for i, f in enumerate(findings):
+        for ent in extract_entities(f):
+            if ent not in blocked:
+                holders.setdefault(ent, []).append(i)
+
+    reasons = {}
+    for (etype, value), idxs in holders.items():
+        for i in idxs:
+            me = findings[i]
+            others = sorted({
+                findings[j].get("platform", "?") for j in idxs
+                if findings[j].get("platform") != me.get("platform")
+                and (etype != "site"
+                     or (findings[j].get("type") == "username") != (me.get("type") == "username"))
+            })
+            if not others:
+                continue
+            if etype == "site":
+                reasons.setdefault(i, []).append(f"same site ({value}) as {', '.join(others)}")
+            else:
+                reasons.setdefault(i, []).append(f"{etype} `{value}` also on {', '.join(others)}")
+    return reasons
+
+
+def correlate(findings: list, searched=None) -> dict:
     """Build the correlation summary from all findings.
 
     Returns entity counts, attributes corroborated across ≥2 findings (the
     high-confidence facts), the identity-cluster count (findings linked by shared
-    entities), and the raw edge list for visualization."""
+    entities), and the raw edge list for visualization. Search inputs (`searched`,
+    {type: values}) are kept in the counts and edges but never corroborate or link."""
     entity_findings = {}   # (type, value) -> set of finding-label
     edges = []             # (finding_label, etype, value)
     type_counts = {}
+    blocked = _search_inputs(searched)
+    site_kinds = {}        # ("site", host) -> {is-username-hit, ...}
 
     for i, f in enumerate(findings):
         label = _finding_label(f, i)
@@ -121,6 +165,13 @@ def correlate(findings: list) -> dict:
             entity_findings.setdefault((etype, value), set()).add(label)
             edges.append((label, etype, value))
             type_counts[etype] = type_counts.get(etype, 0) + 1
+            if etype == "site":
+                site_kinds.setdefault((etype, value), set()).add(f.get("type") == "username")
+    distinct = len(entity_findings)
+    # A site only bridges a username hit to an email/phone registration there; two
+    # username hits on one host are different accounts (see evidence_links).
+    entity_findings = {k: v for k, v in entity_findings.items()
+                       if k not in blocked and (k[0] != "site" or len(site_kinds[k]) == 2)}
 
     corroborated = []
     for (etype, value), labels in entity_findings.items():
@@ -137,7 +188,7 @@ def correlate(findings: list) -> dict:
 
     return {
         "entity_counts": type_counts,
-        "distinct_entities": len(entity_findings),
+        "distinct_entities": distinct,
         "corroborated": corroborated,
         "clusters": clusters,
         "edges": edges,
