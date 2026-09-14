@@ -22,7 +22,7 @@ def run_cli(return_args=False):
     parser.add_argument("--top-sites", type=int, default=500,
                         help="Anzahl der (nach Popularität) geprüften Seiten (mehr = gründlicher, langsamer)")
     parser.add_argument("--all-sites", action="store_true",
-                        help="Alle ~2500 maigret-Seiten prüfen (maximale Abdeckung, deutlich langsamer)")
+                        help="Alle aktiven maigret-Seiten (~4700) prüfen (maximale Abdeckung, deutlich langsamer)")
     parser.add_argument("--pivot-depth", type=int, default=0,
                         help="Auto-Pivot-Tiefe: entdeckte Benutzernamen rekursiv weitersuchen (0 = aus)")
     parser.add_argument("--infra", action="store_true",
