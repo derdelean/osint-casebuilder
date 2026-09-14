@@ -1,3 +1,5 @@
+import asyncio
+import secrets
 from datetime import datetime
 from osint_casebuilder.modules.username_lookup import run_username_lookup_async
 from osint_casebuilder.modules.github_profile_scraper import scrape_github_profile_async
@@ -69,6 +71,25 @@ async def _lookup_username(username, top_sites, interactive=True):
     return await run_username_lookup_async(username)
 
 
+async def _lookup_username_checked(username, top_sites, control, interactive=True):
+    """_lookup_username minus sites that also report a random, surely-unregistered
+    handle as found (negative control). Such sites "confirm" any username from this
+    environment (stale checks, bot walls, catch-all pages), so their hits carry no
+    signal. The control runs once per case (same site set) and is cached in `control`."""
+    if "platforms" in control:
+        found = await _lookup_username(username, top_sites, interactive)
+    else:
+        found, ctrl = await asyncio.gather(
+            _lookup_username(username, top_sites, interactive),
+            _lookup_username("x" + secrets.token_hex(7), top_sites, interactive=False),
+        )
+        control["platforms"] = {f.get("platform", "").lower() for f in ctrl}
+        if interactive and control["platforms"]:
+            print(f"🧪 Negativ-Kontrolle: {len(control['platforms'])} Seite(n) melden auch "
+                  f"einen Zufallsnamen → verworfen: {', '.join(sorted(control['platforms']))}")
+    return [f for f in found if f.get("platform", "").lower() not in control["platforms"]]
+
+
 async def run_case(
     email=None,
     username=None,
@@ -90,6 +111,7 @@ async def run_case(
 ):
     session_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     findings = []
+    control = {}  # negative-control cache, shared by the seed and pivot lookups
 
     if username:
         if interactive:
@@ -97,8 +119,8 @@ async def run_case(
 
         # Primary engine: maigret (3000+ sites, real per-site detection + on-page
         # metadata), via in-process import or subprocess, falling back to the basic
-        # HTTP sweep. See _lookup_username.
-        username_findings = await _lookup_username(username, top_sites, interactive)
+        # HTTP sweep. See _lookup_username / _lookup_username_checked.
+        username_findings = await _lookup_username_checked(username, top_sites, control, interactive)
 
         if interactive:
             print(f"🔎 Found: {len(username_findings)} profiles")
@@ -230,7 +252,7 @@ async def run_case(
 
             for u in seeds["username"]:
                 searched["username"].add(u)
-                pivoted = await _lookup_username(u, top_sites, interactive=False)
+                pivoted = await _lookup_username_checked(u, top_sites, control, interactive=False)
                 for f in pivoted:
                     f["timestamp"] = session_id
                     f["pivoted_from"] = u
