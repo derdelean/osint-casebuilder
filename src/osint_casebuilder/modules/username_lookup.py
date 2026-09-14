@@ -1,3 +1,4 @@
+import sys
 import asyncio
 import httpx
 from .username_mutator import generate_username_variants
@@ -12,7 +13,7 @@ from rich.progress import (
     TaskID
 )
 
-print("✅ Modul `username_lookup` async mit rich-Progressbar aktiv")
+print("✅ Modul `username_lookup` async mit rich-Progressbar aktiv", file=sys.stderr)
 
 PLATFORMS = {
     "GitHub": "https://github.com/{}",

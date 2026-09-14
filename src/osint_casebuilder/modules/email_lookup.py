@@ -1,8 +1,9 @@
+import sys
 import re
 import hashlib
 import httpx
 
-print("✅ Modul `email_lookup` keyless async aktiv")
+print("✅ Modul `email_lookup` keyless async aktiv", file=sys.stderr)
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 

@@ -1,8 +1,9 @@
+import sys
 import os
 
 import httpx
 
-print("✅ Modul `breach_lookup` (HaveIBeenPwned, API-Key) aktiv")
+print("✅ Modul `breach_lookup` (HaveIBeenPwned, API-Key) aktiv", file=sys.stderr)
 
 _HIBP_URL = "https://haveibeenpwned.com/api/v3/breachedaccount/{}"
 

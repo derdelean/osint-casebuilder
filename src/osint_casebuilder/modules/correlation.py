@@ -5,10 +5,11 @@ finding, finds attributes corroborated across multiple platforms, and groups
 findings into identity clusters by shared entities. The optional HTML graph
 export uses pyvis if it happens to be installed (engine venv)."""
 
+import sys
 import re
 from urllib.parse import urlparse
 
-print("✅ Modul `correlation` (Entity-Graph) aktiv")
+print("✅ Modul `correlation` (Entity-Graph) aktiv", file=sys.stderr)
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 

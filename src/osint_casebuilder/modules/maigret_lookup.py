@@ -1,3 +1,4 @@
+import sys
 import logging
 
 import maigret
@@ -6,7 +7,7 @@ from maigret.result import MaigretCheckStatus
 
 from .maigret_common import normalize_meta as _normalize_meta
 
-print("✅ Modul `maigret_lookup` (3000+ Seiten Engine) aktiv")
+print("✅ Modul `maigret_lookup` (3000+ Seiten Engine) aktiv", file=sys.stderr)
 
 _DB = None
 

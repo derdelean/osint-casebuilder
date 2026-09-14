@@ -1,9 +1,10 @@
+import sys
 import asyncio
 
 import httpx
 from ignorant.core import import_submodules, get_functions
 
-print("✅ Modul `phone_accounts_lookup` (ignorant: Phone→Social) aktiv")
+print("✅ Modul `phone_accounts_lookup` (ignorant: Phone→Social) aktiv", file=sys.stderr)
 
 # Discover ignorant's site-check coroutines once (Instagram, Amazon, Snapchat).
 _CHECKS = get_functions(import_submodules("ignorant.modules"))

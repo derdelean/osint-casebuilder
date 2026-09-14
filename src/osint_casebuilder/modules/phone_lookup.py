@@ -1,8 +1,9 @@
+import sys
 import phonenumbers
 from phonenumbers import carrier, geocoder, timezone
 from phonenumbers import PhoneNumberType, PhoneNumberFormat
 
-print("✅ Modul `phone_lookup` (libphonenumber, offline) aktiv")
+print("✅ Modul `phone_lookup` (libphonenumber, offline) aktiv", file=sys.stderr)
 
 _TYPE_NAMES = {
     PhoneNumberType.FIXED_LINE: "fixed_line",

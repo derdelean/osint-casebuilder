@@ -4,6 +4,7 @@ maigret) can still use the real engine as long as a maigret binary is reachable.
 
 Binary resolution order: $MAIGRET_BIN → the repo's `.venv/bin/maigret` → PATH."""
 
+import sys
 import asyncio
 import glob
 import json
@@ -13,7 +14,7 @@ import tempfile
 
 from .maigret_common import normalize_meta, ids_to_pivots
 
-print("✅ Modul `maigret_runner` (subprocess bridge) aktiv")
+print("✅ Modul `maigret_runner` (subprocess bridge) aktiv", file=sys.stderr)
 
 
 def find_maigret_bin():

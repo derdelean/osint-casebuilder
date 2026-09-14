@@ -1,7 +1,8 @@
+import sys
 import httpx
 from holehe.core import import_submodules, get_functions
 
-print("✅ Modul `holehe_lookup` (121 Seiten Email-Registrierung) aktiv")
+print("✅ Modul `holehe_lookup` (121 Seiten Email-Registrierung) aktiv", file=sys.stderr)
 
 # Discover the ~121 site-check coroutines once at import time.
 _SITE_CHECKS = get_functions(import_submodules("holehe.modules"))
