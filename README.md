@@ -29,7 +29,13 @@ Give it any combination of inputs and it will, where applicable:
   when the relevant API keys are present in the environment.
 - **Correlation** — extracts typed entities from every finding and reports the
   attributes corroborated across multiple sources, identity clusters, and an edge
-  list (interactive pyvis graph export when available).
+  list (interactive pyvis graph export when available). The searched values
+  themselves never count as corroboration.
+- **Evidence tiers** — each username hit is either *linked by evidence* (it shares
+  a name, location, domain, email or link with another platform, has an
+  email/phone registration on the same site, or matches a supplied identity hint)
+  or *handle exists only*. Reports show the evidence and list unverified hits
+  separately.
 - **Auto-pivot** (`--pivot-depth N`) — recursively searches usernames and emails
   discovered mid-run (the email↔username pivot).
 - **Confidence scoring** — rates each profile's relevance against the supplied

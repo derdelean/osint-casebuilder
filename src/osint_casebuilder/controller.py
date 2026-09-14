@@ -5,8 +5,8 @@ from osint_casebuilder.modules.username_lookup import run_username_lookup_async
 from osint_casebuilder.modules.github_profile_scraper import scrape_github_profile_async
 from osint_casebuilder.modules.email_lookup import run_email_lookup_async
 from osint_casebuilder.modules.domain_lookup import run_domain_lookup_async
-from osint_casebuilder.modules.confidence_scorer import score_profile
-from osint_casebuilder.modules.correlation import correlate, export_graph_html
+from osint_casebuilder.modules.confidence_scorer import score_profile, matched_hints
+from osint_casebuilder.modules.correlation import correlate, evidence_links, export_graph_html
 from osint_casebuilder.modules.case_store import save_case as store_case
 from osint_casebuilder.modules.social_enrich import run_social_enrichment_async
 from osint_casebuilder.reporter import generate_markdown_report
@@ -112,12 +112,20 @@ async def run_case(
     session_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     findings = []
     control = {}  # negative-control cache, shared by the seed and pivot lookups
+    # Search inputs (seed + pivot seeds): pivots skip them, correlation never counts
+    # them as evidence (a searched handle existing on many sites proves nothing).
+    searched = {
+        "username": {username.lower()} if username else set(),
+        "email": {email.lower()} if email else set(),
+        "domain": {domain.lower()} if domain else set(),
+        "phone": set(),
+    }
 
     if username:
         if interactive:
             print(f"\n🔍 Username lookup: {username}")
 
-        # Primary engine: maigret (3000+ sites, real per-site detection + on-page
+        # Primary engine: maigret (4500+ sites, real per-site detection + on-page
         # metadata), via in-process import or subprocess, falling back to the basic
         # HTTP sweep. See _lookup_username / _lookup_username_checked.
         username_findings = await _lookup_username_checked(username, top_sites, control, interactive)
@@ -200,6 +208,7 @@ async def run_case(
 
         # phone → social accounts via ignorant (Instagram/Amazon/Snapchat, engine venv)
         if phone_findings:
+            searched["phone"].add(phone_findings[0]["value"])  # normalized E.164
             meta0 = phone_findings[0]["meta"]
             try:
                 from osint_casebuilder.modules.phone_accounts_lookup import run_ignorant_lookup_async
@@ -238,10 +247,6 @@ async def run_case(
     # Auto-pivot: recursively search newly discovered usernames AND emails
     # (cross-type), depth-limited and deduped against already-searched seeds.
     if pivot_depth > 0:
-        searched = {
-            "username": {username.lower()} if username else set(),
-            "email": {email.lower()} if email else set(),
-        }
         for round_n in range(pivot_depth):
             seeds = _harvest_pivot_seeds(findings, searched)
             if not any(seeds.values()):
@@ -274,12 +279,26 @@ async def run_case(
                     f["pivoted_from"] = e
                 findings.extend(pivoted)
 
+    # Evidence tiers: a username hit is "linked by evidence" when it shares a
+    # non-search attribute with another platform's finding or matches an identity
+    # hint; otherwise only the handle exists there (reporter lists those compactly).
+    links = evidence_links(findings, searched)
+    for i, f in enumerate(findings):
+        if f.get("type") != "username":
+            continue
+        hints = matched_hints(f.get("meta"), fullname, location, keywords, target_domain)
+        reasons = links.get(i, []) + [f"matches {h} hint" for h in hints]
+        if reasons:
+            f["evidence"] = reasons
+
     # Correlate everything into an entity graph.
-    summary = correlate(findings)
+    summary = correlate(findings, searched)
     if interactive:
+        n_user = sum(1 for f in findings if f.get("type") == "username")
+        n_linked = sum(1 for f in findings if f.get("evidence"))
         print(f"\n🔗 Correlation: {summary['distinct_entities']} entities, "
               f"{len(summary['corroborated'])} corroborated across platforms, "
-              f"{summary['clusters']} cluster(s)")
+              f"{n_linked}/{n_user} username hits linked by evidence")
 
     # Persist the investigation.
     if save:
