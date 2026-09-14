@@ -15,14 +15,13 @@ def score_profile(profile, fullname=None, location=None, keywords=None, domain=N
         if location.lower() in profile["location"].lower():
             score += 1
 
+    # Blank entries (an empty form field, "a,,b") would match every bio via `"" in bio`.
+    keywords = [k.strip() for k in (keywords or []) if k.strip()]
     if keywords and profile.get("bio"):
         total += 1
-        # Keywords is already a list of strings, cleaned by the CLI.
-        if keywords: # Ensure keywords list is not empty before division
-            bio_lower = profile["bio"].lower()
-            matches = sum(1 for kw_item in keywords if kw_item.lower().strip() in bio_lower)
-            if matches and len(keywords) > 0:
-                score += matches / len(keywords)
+        bio_lower = profile["bio"].lower()
+        matches = sum(1 for kw_item in keywords if kw_item.lower() in bio_lower)
+        score += matches / len(keywords)
 
     if domain and profile.get("website"):
         total += 1
