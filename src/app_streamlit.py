@@ -5,7 +5,7 @@ from datetime import datetime
 from io import StringIO
 
 from osint_casebuilder.controller import run_case
-from osint_casebuilder.reporter import render_markdown_content
+from osint_casebuilder.reporter import render_markdown_report
 
 st.set_page_config(page_title="OSINT CaseBuilder", layout="wide")
 st.title("🕵️‍♂️ OSINT CaseBuilder Demo")
@@ -86,7 +86,7 @@ if "results" in st.session_state:
     )
 
     md_buffer = StringIO()
-    md_buffer.write(render_markdown_content(results))
+    md_buffer.write(render_markdown_report(results))
 
     st.download_button(
         label="📝 Download as Markdown",

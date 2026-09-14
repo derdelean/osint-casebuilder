@@ -1,10 +1,7 @@
 import unittest
 
-try:
-    from osint_casebuilder.reporter import render_markdown_report
-    HAS_REPORTER = True
-except ImportError:
-    HAS_REPORTER = False
+# reporter imports no third-party packages → always importable.
+from osint_casebuilder.reporter import render_markdown_report
 
 LINKED = {"type": "username", "value": "soxoj", "platform": "GitHub",
           "source": "https://github.com/soxoj", "score": 0.5,
@@ -19,7 +16,6 @@ SUMMARY = {"distinct_entities": 5, "clusters": 3,
                              "platforms": ["GitHub", "Twitter"]}]}
 
 
-@unittest.skipUnless(HAS_REPORTER, "reporter deps (markdown) not installed")
 class TestEvidenceTiers(unittest.TestCase):
     def setUp(self):
         self.md = render_markdown_report([HANDLE_ONLY, PHONE, LINKED], SUMMARY)
