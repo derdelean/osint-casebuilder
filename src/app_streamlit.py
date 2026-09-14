@@ -24,7 +24,7 @@ if submitted:
         username=username,
         fullname=fullname,
         location=location,
-        keywords=[k.strip() for k in keywords.split(",")],
+        keywords=[k.strip() for k in keywords.split(",") if k.strip()],
         target_domain=target_domain,
         generate_report=False
     ))

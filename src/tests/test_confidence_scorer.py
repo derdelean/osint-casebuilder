@@ -52,6 +52,12 @@ class TestScoreProfile(unittest.TestCase):
         result = score_profile(profile, keywords=["osint", "python"])
         self.assertEqual(result, 0.25)
 
+    def test_blank_keywords_are_ignored(self):
+        # an empty keywords field arrives as [""] and must not match every bio
+        self.assertEqual(score_profile({"bio": "anything"}, keywords=[""]), 0.0)
+        # blanks don't dilute real keywords: 1 of 1 matches -> 1/2 = 0.5
+        self.assertEqual(score_profile({"bio": "osint expert"}, keywords=["osint", " ", ""]), 0.5)
+
     def test_followers_at_threshold_adds_to_score(self):
         # followers >= 100 -> score = 1, total = 2 -> 0.5.
         self.assertEqual(score_profile({"followers": 100}), 0.5)

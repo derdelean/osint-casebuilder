@@ -3,12 +3,13 @@
 bio) than maigret's generic extraction; the controller merges them into the
 matching maigret finding. httpx-only → runs in any environment."""
 
+import sys
 import asyncio
 from datetime import datetime, timezone
 
 import httpx
 
-print("✅ Modul `social_enrich` (Reddit + HackerNews, keyless) aktiv")
+print("✅ Modul `social_enrich` (Reddit + HackerNews, keyless) aktiv", file=sys.stderr)
 
 _UA = "osint-casebuilder/1.0 (research)"
 

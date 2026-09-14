@@ -9,12 +9,14 @@ desktop GUI, and Streamlit — funnel into one async orchestrator.
 
 Give it any combination of inputs and it will, where applicable:
 
-- **Username discovery via Maigret** — real per-site detection across 3000+ sites
-  (top 500 by default, all ~2500 with `--all-sites`), keeping only claimed
-  accounts and parsing on-page metadata into each finding.
-- **Deep profile enrichment** — GitHub (bio/website via the API), Reddit
-  (karma/age), and Hacker News (karma/about), richer than Maigret's generic
-  extraction.
+- **Username discovery via Maigret** — real per-site detection across 4500+ sites
+  (top 500 by default, all with `--all-sites`), keeping only claimed accounts and
+  parsing on-page metadata into each finding. The site database auto-refreshes,
+  and every run also searches a random control handle: sites that report *that*
+  as found are discarded, which removes most false positives.
+- **Deep profile enrichment** — GitHub (bio/website via the API) and Hacker News
+  (karma/about), richer than Maigret's generic extraction. Reddit (karma/age) is
+  best-effort: Reddit currently blocks most keyless requests.
 - **Email intelligence** — keyless MX (DNS-over-HTTPS) + Gravatar, then `holehe`
   to find which of ~121 sites the email is *registered* on (recovery hints
   captured where exposed).
@@ -80,7 +82,7 @@ HIBP_API_KEY=xxx SHODAN_API_KEY=yyy ../.venv/bin/python -m osint_casebuilder.mai
 ../.venv/bin/python -m osint_casebuilder.main --load-case 1
 ```
 
-Key flags: `--all-sites` (full ~2500-site Maigret sweep), `--pivot-depth N`
+Key flags: `--all-sites` (full Maigret sweep), `--pivot-depth N`
 (recursive pivots), `--infra` (subdomain/breach intel), `--db PATH` /
 `--no-save` (case persistence), `--phone-region XX` (for national numbers).
 

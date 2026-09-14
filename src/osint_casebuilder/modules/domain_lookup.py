@@ -1,6 +1,7 @@
+import sys
 import httpx
 
-print("✅ Modul `domain_lookup` keyless async aktiv")
+print("✅ Modul `domain_lookup` keyless async aktiv", file=sys.stderr)
 
 
 def _extract_dns_records(data: dict) -> list:

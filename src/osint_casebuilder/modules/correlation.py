@@ -5,10 +5,11 @@ finding, finds attributes corroborated across multiple platforms, and groups
 findings into identity clusters by shared entities. The optional HTML graph
 export uses pyvis if it happens to be installed (engine venv)."""
 
+import sys
 import re
 from urllib.parse import urlparse
 
-print("✅ Modul `correlation` (Entity-Graph) aktiv")
+print("✅ Modul `correlation` (Entity-Graph) aktiv", file=sys.stderr)
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -23,7 +24,7 @@ def _domain_of(url) -> str:
     if "//" not in s:
         s = "//" + s
     host = urlparse(s).netloc or urlparse(s).path
-    return host.lower().lstrip("www.").split("/")[0].strip()
+    return host.lower().split("/")[0].strip().removeprefix("www.")
 
 
 def extract_entities(finding: dict) -> list:

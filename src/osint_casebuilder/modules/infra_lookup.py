@@ -1,9 +1,10 @@
+import sys
 import asyncio
 import os
 
 import httpx
 
-print("✅ Modul `infra_lookup` (crt.sh keyless + Shodan/Censys key-gated) aktiv")
+print("✅ Modul `infra_lookup` (crt.sh keyless + Shodan/Censys key-gated) aktiv", file=sys.stderr)
 
 _SUBDOMAIN_CAP = 200
 
