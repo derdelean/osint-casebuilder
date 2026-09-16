@@ -9,6 +9,7 @@ from osint_casebuilder.modules.confidence_scorer import score_profile, matched_h
 from osint_casebuilder.modules.correlation import correlate, evidence_links, export_graph_html
 from osint_casebuilder.modules.case_store import save_case as store_case
 from osint_casebuilder.modules.social_enrich import run_social_enrichment_async
+from osint_casebuilder.modules.web_search import run_web_search_async
 from osint_casebuilder.reporter import generate_markdown_report
 
 
@@ -142,6 +143,7 @@ async def run_case(
     control = {}  # negative-control cache, shared by the seed and pivot lookups
     email_control = {}  # same, per email domain (catch-all sites differ by domain)
     holehe_stats = {}  # coverage of the email registration sweep, for `stats`
+    web_stats = {}  # open-web search result count, for `stats`
     # Search inputs (seed + pivot seeds): pivots skip them, correlation never counts
     # them as evidence (a searched handle existing on many sites proves nothing).
     searched = {
@@ -150,6 +152,19 @@ async def run_case(
         "domain": {domain.lower()} if domain else set(),
         "phone": set(),
     }
+
+    # Open-web search on the name. Every other module needs a selector to start
+    # from; this is the only one that turns a name into findings — and into pivot
+    # seeds, so a name-only case can reach the rest of the pipeline at all.
+    if fullname:
+        if interactive:
+            print(f"\n🔍 Web search: {fullname}")
+        web_findings = await run_web_search_async(fullname, stats=web_stats)
+        for f in web_findings:
+            f["timestamp"] = session_id
+        findings.extend(web_findings)
+        if interactive:
+            print(f"🔎 Found: {len(web_findings)} web results")
 
     if username:
         if interactive:
@@ -349,6 +364,8 @@ async def run_case(
     # something very different from 0 out of 121, so let a frontend say which.
     if stats is not None and holehe_stats:
         stats["holehe"] = holehe_stats
+    if stats is not None and web_stats:
+        stats["web"] = web_stats
 
     if generate_report:
         if interactive:

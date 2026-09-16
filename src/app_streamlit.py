@@ -70,6 +70,10 @@ if submitted:
         st.stop()
     st.info("Running OSINT case... Please wait.")
     st.session_state["missing_engines"] = missing_engines(email.strip(), phone.strip())
+    # A name is not a selector: it drives the web search only, never enumeration.
+    st.session_state["no_selector"] = not any(
+        (username.strip(), email.strip(), phone.strip(), domain.strip())
+    )
     run_stats = {}
     results = asyncio.run(run_case(
         username=username.strip() or None,
@@ -97,6 +101,12 @@ if "results" in st.session_state:
     session_id = st.session_state["session_id"]
 
     st.success(f"✅ {len(results)} finding(s)")
+
+    if st.session_state.get("no_selector"):
+        st.warning("No username, email, phone or domain was given. Only the open-web "
+                   "search on the name ran — the account-enumeration engines all need "
+                   "a selector to start from. Add one (or pivot on a handle found "
+                   "below) for a real case.")
 
     for pkg, what in st.session_state.get("missing_engines", []):
         st.warning(f"`{pkg}` is not installed in this environment, so the {what} check was "
