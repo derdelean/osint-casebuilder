@@ -70,6 +70,7 @@ if submitted:
         st.stop()
     st.info("Running OSINT case... Please wait.")
     st.session_state["missing_engines"] = missing_engines(email.strip(), phone.strip())
+    run_stats = {}
     results = asyncio.run(run_case(
         username=username.strip() or None,
         email=email.strip() or None,
@@ -84,8 +85,10 @@ if submitted:
         pivot_depth=int(pivot_depth),
         infra=infra,
         save=save,
-        generate_report=False
+        generate_report=False,
+        stats=run_stats
     ))
+    st.session_state["stats"] = run_stats
     st.session_state["results"] = results
     st.session_state["session_id"] = datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -116,6 +119,14 @@ if "results" in st.session_state:
                     f"**Handle exists only**: `{len(usernames) - len(linked)}`")
     if registrations:
         st.markdown(f"- **Registered accounts**: `{len(registrations)}` — {', '.join(registrations)}")
+    # Most sites block enumeration, so a hit count without its denominator reads as
+    # "these are the accounts" when it means "these are the ones anyone would tell us".
+    holehe_cov = st.session_state.get("stats", {}).get("holehe")
+    if holehe_cov:
+        st.markdown(f"- **Email check coverage**: `{holehe_cov['answered']}` of "
+                    f"`{holehe_cov['checked']}` sites answered · "
+                    f"`{holehe_cov['inconclusive']}` blocked or broken — a site that "
+                    f"never answered is *unknown*, not *absent*")
     if highest_score:
         st.markdown(f"- **Top Match**: `{highest_score.get('value')}` on `{highest_score.get('platform')}` with score `{highest_score.get('score')}`")
     if github_profiles:

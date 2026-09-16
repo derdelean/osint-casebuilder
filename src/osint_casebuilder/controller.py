@@ -90,6 +90,33 @@ async def _lookup_username_checked(username, top_sites, control, interactive=Tru
     return [f for f in found if f.get("platform", "").lower() not in control["platforms"]]
 
 
+async def _lookup_holehe_checked(email, control, interactive=True, stats=None):
+    """run_holehe_lookup_async minus sites that also confirm a random, unregistered
+    address (negative control) — the email-side counterpart of _lookup_username_checked.
+
+    The control address must share the target's domain: catch-all behaviour is a
+    property of the domain, not the site. protonmail, for one, confirms *any*
+    @proton.me address and attaches an account-creation date to it, so without this
+    both the hit and its timestamp read as evidence. Cached per domain, reused by
+    pivots. Raises ImportError when holehe is absent, for the caller to handle."""
+    from osint_casebuilder.modules.holehe_lookup import run_holehe_lookup_async
+
+    domain = email.rpartition("@")[2].lower()
+    if domain in control:
+        found = await run_holehe_lookup_async(email, stats)
+    else:
+        found, ctrl = await asyncio.gather(
+            run_holehe_lookup_async(email, stats),
+            run_holehe_lookup_async("x" + secrets.token_hex(9) + "@" + domain),
+        )
+        control[domain] = {f.get("platform", "").lower() for f in ctrl}
+        if interactive and control[domain]:
+            sites = sorted(p.partition(":")[2] or p for p in control[domain])
+            print(f"🧪 Negativ-Kontrolle (E-Mail): {len(sites)} Seite(n) bestätigen auch eine "
+                  f"Zufallsadresse auf @{domain} → verworfen: {', '.join(sites)}")
+    return [f for f in found if f.get("platform", "").lower() not in control[domain]]
+
+
 async def run_case(
     email=None,
     username=None,
@@ -107,11 +134,14 @@ async def run_case(
     infra=False,
     save=True,
     db_path="cases.db",
-    interactive=True
+    interactive=True,
+    stats=None
 ):
     session_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     findings = []
     control = {}  # negative-control cache, shared by the seed and pivot lookups
+    email_control = {}  # same, per email domain (catch-all sites differ by domain)
+    holehe_stats = {}  # coverage of the email registration sweep, for `stats`
     # Search inputs (seed + pivot seeds): pivots skip them, correlation never counts
     # them as evidence (a searched handle existing on many sites proves nothing).
     searched = {
@@ -176,10 +206,11 @@ async def run_case(
             print(f"\n🔍 Email lookup: {email}")
         email_findings = await run_email_lookup_async(email)
 
-        # holehe: which of ~121 sites is this email registered on? (engine venv)
+        # holehe: which of ~121 sites is this email registered on?
         try:
-            from osint_casebuilder.modules.holehe_lookup import run_holehe_lookup_async
-            email_findings += await run_holehe_lookup_async(email)
+            email_findings += await _lookup_holehe_checked(
+                email, email_control, interactive, holehe_stats
+            )
         except ImportError:
             if interactive:
                 print("⚠️  holehe nicht installiert – überspringe Registrierungs-Check")
@@ -270,8 +301,7 @@ async def run_case(
                 searched["email"].add(e)
                 pivoted = await run_email_lookup_async(e)
                 try:
-                    from osint_casebuilder.modules.holehe_lookup import run_holehe_lookup_async
-                    pivoted += await run_holehe_lookup_async(e)
+                    pivoted += await _lookup_holehe_checked(e, email_control, interactive=False)
                 except ImportError:
                     pass
                 for f in pivoted:
@@ -314,6 +344,11 @@ async def run_case(
         except Exception as e:
             if interactive:
                 print(f"⚠️  Case speichern fehlgeschlagen: {e}")
+
+    # Coverage of the email sweep: "0 found" out of 47 sites that answered means
+    # something very different from 0 out of 121, so let a frontend say which.
+    if stats is not None and holehe_stats:
+        stats["holehe"] = holehe_stats
 
     if generate_report:
         if interactive:
