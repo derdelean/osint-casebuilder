@@ -16,9 +16,14 @@ async def _run_check(fn, email, client, out):
         pass
 
 
-async def run_holehe_lookup_async(email: str) -> list:
+async def run_holehe_lookup_async(email: str, stats: dict | None = None) -> list:
     """Check which of holehe's ~121 sites this email is registered on. Returns a
-    finding per CONFIRMED registration (rate-limited/unknown results are dropped)."""
+    finding per CONFIRMED registration (rate-limited/unknown results are dropped).
+
+    Pass `stats` to also receive coverage counts. Most checks never give a usable
+    answer — sites rate-limit or block enumeration on purpose, and some are simply
+    broken against the current layout — so a bare hit count silently overstates how
+    much of the internet was actually looked at."""
     import asyncio
 
     print(f"🧠 holehe: prüfe {len(_SITE_CHECKS)} Seiten für '{email}'")
@@ -28,8 +33,12 @@ async def run_holehe_lookup_async(email: str) -> list:
         await asyncio.gather(*(_run_check(fn, email, client, raw) for fn in _SITE_CHECKS))
 
     findings = []
+    answered = 0
     for r in raw:
-        if not r.get("exists") or r.get("rateLimit"):
+        if r.get("rateLimit"):
+            continue
+        answered += 1  # the site gave a usable yes/no
+        if not r.get("exists"):
             continue
         domain = r.get("domain") or r.get("name")
         findings.append({
@@ -45,5 +54,12 @@ async def run_holehe_lookup_async(email: str) -> list:
             },
         })
 
-    print(f"✅ holehe: {len(findings)} bestätigte Registrierungen")
+    if stats is not None:
+        stats["checked"] = len(_SITE_CHECKS)
+        stats["answered"] = answered
+        stats["inconclusive"] = len(_SITE_CHECKS) - answered
+        stats["confirmed"] = len(findings)
+
+    print(f"✅ holehe: {len(findings)} bestätigte Registrierungen "
+          f"({answered}/{len(_SITE_CHECKS)} Seiten haben geantwortet)")
     return findings

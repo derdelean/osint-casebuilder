@@ -1,5 +1,6 @@
 import streamlit as st
 import asyncio
+import importlib.util
 import json
 from datetime import datetime
 from io import StringIO
@@ -10,6 +11,29 @@ from utils.validation import validate_inputs
 
 st.set_page_config(page_title="OSINT CaseBuilder", layout="wide")
 st.title("🕵️‍♂️ OSINT CaseBuilder Demo")
+
+# The controller skips these checks when the package can't be imported, so a missing
+# engine looks exactly like "no accounts found". Report the gap instead of hiding it.
+_OPTIONAL_ENGINES = (
+    ("holehe", "email", "email → registered accounts"),
+    ("ignorant", "phone", "phone → Instagram/Amazon/Snapchat"),
+)
+
+
+def _importable(pkg):
+    """find_spec raises rather than returning None on a broken or partial install
+    (missing parent, unloadable spec); for our purposes that is the same as absent."""
+    try:
+        return importlib.util.find_spec(pkg) is not None
+    except Exception:
+        return False
+
+
+def missing_engines(email, phone):
+    """(package, description) for each optional engine that this run needs but can't import."""
+    supplied = {"email": email, "phone": phone}
+    return [(pkg, what) for pkg, field, what in _OPTIONAL_ENGINES
+            if supplied[field] and not _importable(pkg)]
 
 with st.form("input_form"):
     target_col, hints_col = st.columns(2)
@@ -45,6 +69,12 @@ if submitted:
         st.error("Please provide at least one input (username, email, phone, domain, or an identity hint).")
         st.stop()
     st.info("Running OSINT case... Please wait.")
+    st.session_state["missing_engines"] = missing_engines(email.strip(), phone.strip())
+    # A name is not a selector: it drives the web search only, never enumeration.
+    st.session_state["no_selector"] = not any(
+        (username.strip(), email.strip(), phone.strip(), domain.strip())
+    )
+    run_stats = {}
     results = asyncio.run(run_case(
         username=username.strip() or None,
         email=email.strip() or None,
@@ -59,8 +89,10 @@ if submitted:
         pivot_depth=int(pivot_depth),
         infra=infra,
         save=save,
-        generate_report=False
+        generate_report=False,
+        stats=run_stats
     ))
+    st.session_state["stats"] = run_stats
     st.session_state["results"] = results
     st.session_state["session_id"] = datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -70,16 +102,41 @@ if "results" in st.session_state:
 
     st.success(f"✅ {len(results)} finding(s)")
 
+    if st.session_state.get("no_selector"):
+        st.warning("No username, email, phone or domain was given. Only the open-web "
+                   "search on the name ran — the account-enumeration engines all need "
+                   "a selector to start from. Add one (or pivot on a handle found "
+                   "below) for a real case.")
+
+    for pkg, what in st.session_state.get("missing_engines", []):
+        st.warning(f"`{pkg}` is not installed in this environment, so the {what} check was "
+                   f"**skipped** — this is not a 'no accounts found' result. "
+                   f"Install it with `pip install -r requirements.txt`.")
+
     # Summary block
     usernames = [r for r in results if r.get("type") == "username"]
     linked = [r for r in usernames if r.get("evidence")]
     github_profiles = [r for r in results if r.get("platform", "").lower() == "github"]
+    # holehe/ignorant hits are the "this account exists" evidence, so name the sites up front
+    # instead of leaving them to be found one collapsed expander at a time.
+    registrations = sorted({r["platform"].split(":", 1)[1] for r in results
+                            if str(r.get("platform", "")).startswith(("holehe:", "ignorant:"))})
     highest_score = max(results, key=lambda x: x.get("score", 0.0), default=None)
     st.markdown("### 🔍 Summary")
     st.markdown(f"- **Total Results**: `{len(results)}`")
     if usernames:
         st.markdown(f"- **Linked by evidence**: `{len(linked)}` · "
                     f"**Handle exists only**: `{len(usernames) - len(linked)}`")
+    if registrations:
+        st.markdown(f"- **Registered accounts**: `{len(registrations)}` — {', '.join(registrations)}")
+    # Most sites block enumeration, so a hit count without its denominator reads as
+    # "these are the accounts" when it means "these are the ones anyone would tell us".
+    holehe_cov = st.session_state.get("stats", {}).get("holehe")
+    if holehe_cov:
+        st.markdown(f"- **Email check coverage**: `{holehe_cov['answered']}` of "
+                    f"`{holehe_cov['checked']}` sites answered · "
+                    f"`{holehe_cov['inconclusive']}` blocked or broken — a site that "
+                    f"never answered is *unknown*, not *absent*")
     if highest_score:
         st.markdown(f"- **Top Match**: `{highest_score.get('value')}` on `{highest_score.get('platform')}` with score `{highest_score.get('score')}`")
     if github_profiles:
